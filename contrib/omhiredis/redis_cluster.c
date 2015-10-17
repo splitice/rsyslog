@@ -587,6 +587,7 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
     int handler_idx;
 
     handler_idx = cluster->slots_handler[slot]->id;
+	_redis_cluster_log("Using redis node %d", handler_idx);
     if (!cluster->redis_nodes[handler_idx]->ctx) {
         cluster->redis_nodes[handler_idx]->ctx = redisConnectWithTimeout(cluster->redis_nodes[handler_idx]->ip, cluster->redis_nodes[handler_idx]->port, cluster->timeout);
         if (!cluster->redis_nodes[handler_idx]->ctx || cluster->redis_nodes[handler_idx]->ctx->err) {
