@@ -436,12 +436,13 @@ int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *port
 
         r = _redis_command_cluster_slots(ctx);
         if (!r || REDIS_REPLY_ARRAY != r->type) {
-            redisFree(ctx);
             if (r) {
                 freeReplyObject(r);
                 r = NULL;
             }
             _redis_cluster_log("Get reply fail.");
+            redisFree(ctx);
+			ctx = NULL;
             continue;
         }
         break;
