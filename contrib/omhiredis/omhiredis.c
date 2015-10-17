@@ -143,12 +143,14 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 			pWrkrData->pData->port);
 			
 	pWrkrData->conn = redis_cluster_init();
-    if (!cluster) {
-        printf("Init cluster fail.\n");
-        return -1;
+    if (!pWrkrData->conn) {
+		if(!bSilent)
+			errmsg.LogError(0, RS_RET_SUSPENDED,
+				"Init cluster fail.");
+		ABORT_FINALIZE(RS_RET_SUSPENDED);
     }
 	
-	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1);
+	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2);
 	if (res == 0) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
@@ -176,13 +178,13 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	int rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
-			rc = redis_cluster_append(pWrkrData->conn, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			rc = redis_cluster_append(pWrkrData->conn, "LPUSH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, "LPUSH %s %s", pWrkrData->pData->key, (char*)message);
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
-			rc = redis_cluster_append(pWrkrData->conn, "PUBLISH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, "PUBLISH %s %s", pWrkrData->pData->key, (char*)message);
 			break;
 		default:
 			dbgprintf("omhiredis: mode %d is invalid something is really wrong\n", pWrkrData->pData->mode);
