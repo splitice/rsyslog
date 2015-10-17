@@ -143,7 +143,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 			pWrkrData->pData->port);
 			
 	pWrkrData->conn = redis_cluster_init();
-    if (pWrkrData->conn) {
+    if (!pWrkrData->conn) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
 				"Init cluster fail.");
@@ -192,7 +192,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
     }
 
 	if (rc == -1) {
-		errmsg.LogError(0, NO_ERRCODE, "omhiredis: %s", pWrkrData->conn->errstr);
+		errmsg.LogError(0, NO_ERRCODE, "omhiredis: command failed - errstr %s", pWrkrData->conn->errstr);
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
