@@ -64,6 +64,7 @@ typedef struct _instanceData {
 	char *modeDescription; /* mode description */
 	int mode; /* mode constant */
 	char *key; /* key for QUEUE and PUBLISH modes */
+	int maxkeyn;
 } instanceData;
 
 typedef struct wrkrInstanceData {
@@ -79,6 +80,7 @@ static struct cnfparamdescr actpdescr[] = {
 	{ "template", eCmdHdlrGetWord, 0 },
 	{ "mode", eCmdHdlrGetWord, 0 },
 	{ "key", eCmdHdlrGetWord, 0 },
+	{ "maxkeyn", eCmdHdlrInt, 0 },
 };
 
 static struct cnfparamblk actpblk = {
@@ -164,14 +166,19 @@ finalize_it:
 	RETiRet;
 }
 
+static int n;
 rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 {
 	DEFiRet;
+	
+	char key_formatted[256];
 
 	/*  if we do not have a redis connection, call
 	 *  initHiredis and try to establish one */
 	if(pWrkrData->conn == NULL)
 		CHKiRet(initHiredis(pWrkrData, 0));
+	
+	snprintf(key_formatted,sizeof(key_formatted),pWrkrData->pData->key,++n%pWrkrData->pData->maxkeyn);
 
 	/*  try to append the command to the pipeline. 
 	 *  REDIS_ERR reply indicates something bad
@@ -181,13 +188,13 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	int rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
-			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, "LPUSH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
-			rc = redis_cluster_append(pWrkrData->conn, pWrkrData->pData->key, "PUBLISH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
 			break;
 		default:
 			dbgprintf("omhiredis: mode %d is invalid something is really wrong\n", pWrkrData->pData->mode);
@@ -276,6 +283,8 @@ CODESTARTnewActInst
 	CHKiRet(createInstance(&pData));
 	setInstParamDefaults(pData);
 
+	pData->maxkeyn = 5;
+	
 	CODE_STD_STRING_REQUESTnewActInst(1)
 	for(i = 0 ; i < actpblk.nParams ; ++i) {
 		if(!pvals[i].bUsed)
@@ -285,6 +294,8 @@ CODESTARTnewActInst
 			pData->server = (uchar*)es_str2cstr(pvals[i].val.d.estr, NULL);
 		} else if(!strcmp(actpblk.descr[i].name, "serverport")) {
 			pData->port = (int) pvals[i].val.d.n, NULL;
+		} else if(!strcmp(actpblk.descr[i].name, "maxkeyn")) {
+			pData->maxkeyn = (int) pvals[i].val.d.n, NULL;
 		} else if(!strcmp(actpblk.descr[i].name, "template")) {
 			pData->tplName = (uchar*)es_str2cstr(pvals[i].val.d.estr, NULL);
 		} else if(!strcmp(actpblk.descr[i].name, "mode")) {
