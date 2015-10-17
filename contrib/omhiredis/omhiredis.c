@@ -39,6 +39,7 @@
 #include "template.h"
 #include "module-template.h"
 #include "errmsg.h"
+#include "redis_cluster.h"
 #include "cfsysline.h"
 
 MODULE_TYPE_OUTPUT
@@ -67,7 +68,7 @@ typedef struct _instanceData {
 
 typedef struct wrkrInstanceData {
 	instanceData *pData; /* instanc data */
-	redisContext *conn; /* redis connection */
+	redis_cluster_st *conn; /* redis connection */
 	redisReply **replies; /* array to hold replies from redis */
 	int count; /* count of command sent for current batch */
 } wrkrInstanceData_t;
@@ -105,7 +106,7 @@ ENDisCompatibleWithFeature
 static void closeHiredis(wrkrInstanceData_t *pWrkrData)
 {
 	if(pWrkrData->conn != NULL) {
-		redisFree(pWrkrData->conn);
+		redis_cluster_free(pWrkrData->conn);
 		pWrkrData->conn = NULL;
 	}
 }
@@ -134,16 +135,21 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 {
 	char *server;
 	DEFiRet;
+	int res;
 
 	server = (pWrkrData->pData->server == NULL) ? "127.0.0.1" : 
 			(char*) pWrkrData->pData->server;
 	DBGPRINTF("omhiredis: trying connect to '%s' at port %d\n", server, 
 			pWrkrData->pData->port);
+			
+	pWrkrData->conn = redis_cluster_init();
+    if (!cluster) {
+        printf("Init cluster fail.\n");
+        return -1;
+    }
 	
-	struct timeval timeout = { 1, 500000 }; /* 1.5 seconds */
-	pWrkrData->conn = redisConnectWithTimeout(server, pWrkrData->pData->port,
-			timeout);
-	if (pWrkrData->conn->err) {
+	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1);
+	if (res == 0) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
 				"can not initialize redis handle");
@@ -170,13 +176,13 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	int rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
-			rc = redisAppendCommand(pWrkrData->conn, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			rc = redisAppendCommand(pWrkrData->conn, "LPUSH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, "LPUSH %s %s", pWrkrData->pData->key, (char*)message);
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
-			rc = redisAppendCommand(pWrkrData->conn, "PUBLISH %s %s", pWrkrData->pData->key, (char*)message);
+			rc = redis_cluster_append(pWrkrData->conn, "PUBLISH %s %s", pWrkrData->pData->key, (char*)message);
 			break;
 		default:
 			dbgprintf("omhiredis: mode %d is invalid something is really wrong\n", pWrkrData->pData->mode);
@@ -235,9 +241,7 @@ CODESTARTendTransaction
 	int i;
 	pWrkrData->replies = malloc ( sizeof ( redisReply* ) * pWrkrData->count );
 	for ( i = 0; i < pWrkrData->count; i++ ) {
-		redisGetReply ( pWrkrData->conn, (void *)&pWrkrData->replies[i] );
-		/*  TODO: add error checking here! */
-		freeReplyObject ( pWrkrData->replies[i] );
+		redis_cluster_get_reply ( pWrkrData->conn );
 	}
 	free ( pWrkrData->replies );
 ENDendTransaction
