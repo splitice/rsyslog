@@ -191,7 +191,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 			ABORT_FINALIZE(RS_RET_ERR);
     }
 
-	if (rc == REDIS_ERR) {
+	if (rc == -1) {
 		errmsg.LogError(0, NO_ERRCODE, "omhiredis: %s", pWrkrData->conn->errstr);
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);

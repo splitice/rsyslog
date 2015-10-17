@@ -143,6 +143,13 @@ int _redis_cluster_refresh(redis_cluster_st *cluster)
     return -1;
 }
 
+void _redis_cluster_set_slot(redis_cluster_st *cluster, redis_cluster_node_st *cluster_node, int slot)
+{
+    assert(cluster);
+    assert(slot >= 0);
+    cluster->slots_handler[slot] = cluster_node;
+}
+
 int _redis_cluster_refresh_from_reply(redis_cluster_st *cluster, const redisReply *reply)
 {
     if (!cluster || !reply) {
@@ -194,7 +201,7 @@ int _redis_cluster_refresh_from_reply(redis_cluster_st *cluster, const redisRepl
 
         /* Slots handler */
         for (k = (int)reply->element[i]->element[0]->integer; k <= (int)reply->element[i]->element[1]->integer; ++k) {
-            cluster->slots_handler[k] = cluster->redis_nodes[i];
+			_redis_cluster_set_slot(cluster,cluster->redis_nodes[i],k);
         }
 
         _redis_cluster_log("Master:[%d] (%d - %d)[%s:%d]", (int)i, (int)reply->element[i]->element[0]->integer, (int)reply->element[i]->element[1]->integer, ip, port);
@@ -238,13 +245,6 @@ int _redis_cluster_refresh_from_reply(redis_cluster_st *cluster, const redisRepl
 
     cluster->node_count = cluster_idx;
     return 0;
-}
-
-void _redis_cluster_set_slot(redis_cluster_st *cluster, redis_cluster_node_st *cluster_node, int slot)
-{
-    assert(cluster);
-    assert(slot >= 0);
-    cluster->slots_handler[slot] = cluster_node;
 }
 
 int _redis_cluster_find_connection(redis_cluster_st *cluster, const char *ip, int port)
@@ -408,7 +408,7 @@ redis_cluster_st *redis_cluster_init()
 
 int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *ports, int count, int timeout)
 {
-    if (!ips || !ports || count < 0 || timeout <= 0) {
+    if (!ips || !ports || count <= 0 || timeout <= 0) {
         return -1;
     }
     redisContext *ctx = NULL;
@@ -420,9 +420,15 @@ int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *port
 
     int i;
     for (i = 0; i < count; ++i) {
-        if (!ips[i] || ports[i] <= 0) {
-            continue;
+        if (!ips[i]) {
+            _redis_cluster_log("Empty IP provided for idx %d", i);
+            return -1;
         }
+		
+		if(ports[i] <= 0){
+            _redis_cluster_log("Invalid port %d provided at idx %d", ports[i], i);
+            return -1;
+		}
 
         ctx = redisConnectWithTimeout(ips[i], ports[i], tv);
         if (!ctx || ctx->err) {
@@ -585,9 +591,15 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
 
     int rc;
     int handler_idx;
+	redis_cluster_node_st *s;
 
-    handler_idx = cluster->slots_handler[slot]->id;
-	_redis_cluster_log("Using redis node %d", handler_idx);
+	s = cluster->slots_handler[slot];
+	if(s == NULL){
+		_redis_cluster_log("Find slot handler connection fail (not loaded?).");
+		return -1;
+	}
+	
+    handler_idx = s->id;
     if (!cluster->redis_nodes[handler_idx]->ctx) {
         cluster->redis_nodes[handler_idx]->ctx = redisConnectWithTimeout(cluster->redis_nodes[handler_idx]->ip, cluster->redis_nodes[handler_idx]->port, cluster->timeout);
         if (!cluster->redis_nodes[handler_idx]->ctx || cluster->redis_nodes[handler_idx]->ctx->err) {
