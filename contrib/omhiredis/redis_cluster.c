@@ -406,7 +406,7 @@ redis_cluster_st *redis_cluster_init()
     return cluster;
 }
 
-int redis_cluster_connect(redis_cluster_st *cluster, const char (*ips)[64], int *ports, int count, int timeout)
+int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *ports, int count, int timeout)
 {
     if (!ips || !ports || count < 0 || timeout <= 0) {
         return -1;

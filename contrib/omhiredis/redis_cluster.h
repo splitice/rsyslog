@@ -67,7 +67,7 @@ void _redis_cluster_hostmask_exchang(uint32_t mask, uint32_t dest, char *host);
 
 /* Client interface */
 redis_cluster_st *redis_cluster_init();
-int redis_cluster_connect(redis_cluster_st *cluster, const char (*ips)[64], int *ports, int count, int timeout);
+int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *ports, int count, int timeout);
 void redis_cluster_free(redis_cluster_st *cluster);
 
 int redis_cluster_set_hostmask(redis_cluster_st *cluster, uint32_t mask, uint32_t dest);
