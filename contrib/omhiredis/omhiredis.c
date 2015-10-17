@@ -143,7 +143,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 			pWrkrData->pData->port);
 			
 	pWrkrData->conn = redis_cluster_init();
-    if (!pWrkrData->conn) {
+    if (pWrkrData->conn) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
 				"Init cluster fail.");
@@ -151,7 +151,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
     }
 	
 	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2);
-	if (res == 0) {
+	if (res == -1) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
 				"can not initialize redis handle");

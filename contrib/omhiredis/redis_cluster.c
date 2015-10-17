@@ -436,11 +436,17 @@ int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *port
 
         r = _redis_command_cluster_slots(ctx);
         if (!r || REDIS_REPLY_ARRAY != r->type) {
-            if (r) {
+			if (r) {
+				if(r->type == REDIS_REPLY_ERROR) {
+					_redis_cluster_log("Get reply fail, error: %s", r->str);
+				}else{
+					_redis_cluster_log("Get reply fail, incorrect type");
+				}
                 freeReplyObject(r);
                 r = NULL;
-            }
-            _redis_cluster_log("Get reply fail.");
+            }else{
+				_redis_cluster_log("Get reply fail due to no response");
+			}
             redisFree(ctx);
 			ctx = NULL;
             continue;
