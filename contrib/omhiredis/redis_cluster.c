@@ -10,7 +10,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define DEBUG
+
+#include "rsyslog.h"
+#include "conf.h"
+#include "errmsg.h"
+
+static errmsg_if_t errmsg;
+
 #ifdef DEBUG
 #define _redis_cluster_log(fmt, arg...) _redis_cluster_print_log(__LINE__, fmt, ##arg)
 void _redis_cluster_print_log(int line, const char *fmt, ...)
@@ -23,7 +29,8 @@ void _redis_cluster_print_log(int line, const char *fmt, ...)
     va_end(args);
     avg_buf[len] = '\0';
 
-    printf("[%d] %s\n", line, avg_buf);
+	errmsg.LogError(0, RS_RET_SUSPENDED,
+		"omhiredis(redis_cluster[%d]): %s\n", line, avg_buf);
 }
 
 #else
@@ -399,10 +406,11 @@ void _redis_cluster_hostmask_exchang(uint32_t mask, uint32_t dest, char *host)
     strcpy(host, inet_ntoa(adr_inet.sin_addr));
 }
 
-redis_cluster_st *redis_cluster_init()
+redis_cluster_st *redis_cluster_init(errmsg_if_t errhandler)
 {
     redis_cluster_st *cluster = (redis_cluster_st *)malloc(sizeof(redis_cluster_st));
     memset(cluster, 0x00, sizeof(redis_cluster_st));
+	errmsg = errhandler;//Sorry!
     return cluster;
 }
 
@@ -451,7 +459,7 @@ int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *port
                 freeReplyObject(r);
                 r = NULL;
             }else{
-				_redis_cluster_log("Get reply fail due to no response");
+				_redis_cluster_log("Get reply fail due to no response, errstr: %s", ctx->errstr);
 			}
             redisFree(ctx);
 			ctx = NULL;
@@ -528,7 +536,7 @@ redisReply *redis_cluster_execute(redis_cluster_st *cluster, const char *key, co
 {
     int slot = _crc16(key, strlen(key)) % REDIS_CLUSTER_SLOTS;
 
-    _redis_cluster_log("Key[%s] Slot[%d]", key, slot);
+    //_redis_cluster_log("Key[%s] Slot[%d]", key, slot);
     va_list ap;
     va_start(ap, fmt);
     redisReply *r = redis_cluster_arg_execute(cluster, slot, fmt, ap);
@@ -541,7 +549,7 @@ redisReply *redis_cluster_v_execute(redis_cluster_st *cluster, const char *key, 
 {
     int slot = _crc16(key, strlen(key)) % REDIS_CLUSTER_SLOTS;
 
-    _redis_cluster_log("Key[%s] Slot[%d]", key, slot);
+    //_redis_cluster_log("Key[%s] Slot[%d]", key, slot);
     return redis_cluster_arg_execute(cluster, slot, fmt, ap);
 }
 
@@ -568,7 +576,7 @@ int redis_cluster_append(redis_cluster_st *cluster, const char *key, const char 
 {
     int slot = _crc16(key, strlen(key)) % REDIS_CLUSTER_SLOTS;
 
-    _redis_cluster_log("Key[%s] Slot[%d]", key, slot);
+    //_redis_cluster_log("Key[%s] Slot[%d]", key, slot);
     va_list ap;
     va_start(ap, fmt);
     int rc = redis_cluster_arg_append(cluster, slot, fmt, ap);
@@ -624,7 +632,7 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
         _redis_cluster_log("Reconnect success.");
     }
 
-    _redis_cluster_log("Slot[%d] handler[%s:%d]", slot, cluster->redis_nodes[handler_idx]->ip, cluster->redis_nodes[handler_idx]->port);
+    //_redis_cluster_log("Slot[%d] handler[%s:%d]", slot, cluster->redis_nodes[handler_idx]->ip, cluster->redis_nodes[handler_idx]->port);
     assert(cluster->redis_nodes[handler_idx]->ctx);
     rc = redisvAppendCommand(cluster->redis_nodes[handler_idx]->ctx, fmt, ap);
 	cluster->errstr = cluster->redis_nodes[handler_idx]->ctx->errstr;

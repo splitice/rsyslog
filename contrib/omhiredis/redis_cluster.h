@@ -66,7 +66,7 @@ redisReply *_redis_command_cluster_slots(redisContext *ctx);
 void _redis_cluster_hostmask_exchang(uint32_t mask, uint32_t dest, char *host);
 
 /* Client interface */
-redis_cluster_st *redis_cluster_init();
+redis_cluster_st *redis_cluster_init(errmsg_if_t errhandler);
 int redis_cluster_connect(redis_cluster_st *cluster, const char **ips, int *ports, int count, int timeout);
 void redis_cluster_free(redis_cluster_st *cluster);
 

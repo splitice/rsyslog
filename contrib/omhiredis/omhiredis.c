@@ -142,7 +142,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 	DBGPRINTF("omhiredis: trying connect to '%s' at port %d\n", server, 
 			pWrkrData->pData->port);
 			
-	pWrkrData->conn = redis_cluster_init();
+	pWrkrData->conn = redis_cluster_init(errmsg);
     if (!pWrkrData->conn) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
@@ -152,9 +152,12 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 	
 	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2);
 	if (res == -1) {
+		redis_cluster_free(pWrkrData->conn);
+		pWrkrData->conn = NULL;
+		
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
-				"can not initialize redis handle");
+				"can not connect to redis");
 		ABORT_FINALIZE(RS_RET_SUSPENDED);
 	}
 finalize_it:
@@ -196,7 +199,9 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		pWrkrData->count++;
+		if(redis_cluster_get_reply ( pWrkrData->conn ) == NULL){
+			dbgprintf("omhiredis: getting reply failed");
+		}
 	}
 
 finalize_it:
@@ -240,12 +245,6 @@ ENDdoAction
 BEGINendTransaction
 CODESTARTendTransaction
 	dbgprintf("omhiredis: endTransaction called\n");
-	int i;
-	pWrkrData->replies = malloc ( sizeof ( redisReply* ) * pWrkrData->count );
-	for ( i = 0; i < pWrkrData->count; i++ ) {
-		redis_cluster_get_reply ( pWrkrData->conn );
-	}
-	free ( pWrkrData->replies );
 ENDendTransaction
 
 /*  set defaults. note server is set to NULL 
