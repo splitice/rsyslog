@@ -206,7 +206,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		reply = redis_cluster_get_reply ( pWrkrData->conn )
+		reply = redis_cluster_get_reply ( pWrkrData->conn );
 		if(reply == NULL){
 			dbgprintf("omhiredis: getting reply failed");
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
