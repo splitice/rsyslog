@@ -144,7 +144,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 	DBGPRINTF("omhiredis: trying connect to '%s' at port %d\n", server, 
 			pWrkrData->pData->port);
 			
-	pWrkrData->conn = redis_cluster_init(errmsg);
+	pWrkrData->conn = redis_cluster_init();
     if (!pWrkrData->conn) {
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,

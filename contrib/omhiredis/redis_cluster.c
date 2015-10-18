@@ -13,9 +13,6 @@
 
 #include "rsyslog.h"
 #include "conf.h"
-#include "errmsg.h"
-
-static errmsg_if_t errmsg;
 
 #ifdef DEBUG
 #define _redis_cluster_log(fmt, arg...) _redis_cluster_print_log(__LINE__, fmt, ##arg)
@@ -29,8 +26,7 @@ void _redis_cluster_print_log(int line, const char *fmt, ...)
     va_end(args);
     avg_buf[len] = '\0';
 
-	errmsg.LogError(0, RS_RET_SUSPENDED,
-		"omhiredis(redis_cluster[%d]): %s\n", line, avg_buf);
+	dbgprintf("omhiredis(redis_cluster[%d]): %s\n", line, avg_buf);
 }
 
 #else
@@ -406,11 +402,10 @@ void _redis_cluster_hostmask_exchang(uint32_t mask, uint32_t dest, char *host)
     strcpy(host, inet_ntoa(adr_inet.sin_addr));
 }
 
-redis_cluster_st *redis_cluster_init(errmsg_if_t errhandler)
+redis_cluster_st *redis_cluster_init()
 {
     redis_cluster_st *cluster = (redis_cluster_st *)malloc(sizeof(redis_cluster_st));
     memset(cluster, 0x00, sizeof(redis_cluster_st));
-	errmsg = errhandler;//Sorry!
     return cluster;
 }
 
