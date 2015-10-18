@@ -170,7 +170,7 @@ static int n;
 rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 {
 	DEFiRet;
-	
+	redisReply * reply;
 	char key_formatted[256];
 
 	/*  if we do not have a redis connection, call
@@ -206,8 +206,13 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		if(redis_cluster_get_reply ( pWrkrData->conn ) == NULL){
+		reply = redis_cluster_get_reply ( pWrkrData->conn )
+		if(reply == NULL){
 			dbgprintf("omhiredis: getting reply failed");
+			ABORT_FINALIZE(RS_RET_SUSPENDED);
+		}else if(r->type == REDIS_REPLY_ERROR){
+			dbgprintf("omhiredis: getting reply error: %s", r->str);
+			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}
 	}
 
