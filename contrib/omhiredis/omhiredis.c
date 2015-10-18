@@ -65,6 +65,7 @@ typedef struct _instanceData {
 	int mode; /* mode constant */
 	char *key; /* key for QUEUE and PUBLISH modes */
 	int maxkeyn;
+	int keyn;
 } instanceData;
 
 typedef struct wrkrInstanceData {
@@ -162,11 +163,13 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 				"can not connect to redis");
 		ABORT_FINALIZE(RS_RET_SUSPENDED);
 	}
+	
+	srand(time(NULL));
+	pWrkrData->pData->keyn = rand();
 finalize_it:
 	RETiRet;
 }
 
-static int n;
 rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 {
 	DEFiRet;
@@ -178,7 +181,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	if(pWrkrData->conn == NULL)
 		CHKiRet(initHiredis(pWrkrData, 0));
 	
-	snprintf(key_formatted,sizeof(key_formatted),pWrkrData->pData->key,++n%pWrkrData->pData->maxkeyn);
+	snprintf(key_formatted,sizeof(key_formatted),pWrkrData->pData->key,(++pWrkrData->pData->keyn)%pWrkrData->pData->maxkeyn);
 
 	/*  try to append the command to the pipeline. 
 	 *  REDIS_ERR reply indicates something bad
