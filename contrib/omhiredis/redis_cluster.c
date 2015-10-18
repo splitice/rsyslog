@@ -1,18 +1,29 @@
-#include "redis_cluster.h"
-
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <string.h>
 #include <assert.h>
+#include <string.h>
+#include <ctype.h>
+#include <errno.h>
+#include <assert.h>
+#include <signal.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
 #include "rsyslog.h"
 #include "conf.h"
+#include "syslogd-types.h"
+#include "srUtils.h"
+#include "template.h"
+#include "module-template.h"
+#include "errmsg.h"
+#include "redis_cluster.h"
+#include "cfsysline.h"
+
+#include "redis_cluster.h"
 
 #ifdef DEBUG
 #define _redis_cluster_log(fmt, arg...) _redis_cluster_print_log(__LINE__, fmt, ##arg)
@@ -589,6 +600,7 @@ int redis_cluster_v_append(redis_cluster_st *cluster, const char *key, const cha
 int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fmt, va_list ap)
 {
     if (!cluster || slot < 0 || !fmt) {
+		cluster->errstr = "invalid call to redis_cluster_arg_append";
         return -1;
     }
 
@@ -598,7 +610,7 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
 
 	s = cluster->slots_handler[slot];
 	if(s == NULL){
-		_redis_cluster_log("Find slot handler connection fail (not loaded?).");
+		cluster->errstr = "Find slot handler connection fail (not loaded?).";
 		return -1;
 	}
 	
@@ -630,8 +642,8 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
     //_redis_cluster_log("Slot[%d] handler[%s:%d]", slot, cluster->redis_nodes[handler_idx]->ip, cluster->redis_nodes[handler_idx]->port);
     assert(cluster->redis_nodes[handler_idx]->ctx);
     rc = redisvAppendCommand(cluster->redis_nodes[handler_idx]->ctx, fmt, ap);
-	cluster->errstr = cluster->redis_nodes[handler_idx]->ctx->errstr;
     if (REDIS_OK != rc) {
+		dbgprintf("redis append command error: %s", cluster->redis_nodes[handler_idx]->ctx->errstr);
         redisFree(cluster->redis_nodes[handler_idx]->ctx);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
         return -1;
@@ -655,6 +667,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
 {
     _append_slot_record *record = _slot_list_get(cluster->slot_list);
     if (NULL == record) {
+		cluster->errstr = "No slot found";
         return NULL;
     }
 
@@ -663,6 +676,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
     int handler_idx;
     redisReply *reply = NULL;
     redisContext *redirect_ctx = NULL;
+	redisContext *redis_node;
 
     char *p, *s;
     int is_ask;
@@ -670,22 +684,26 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
 
     handler_idx = cluster->slots_handler[slot]->id;
     if (!cluster->redis_nodes[handler_idx]->ctx) {
+		cluster->errstr = "No slot handler found";
         return NULL;
     }
 
-    rc = redisSetTimeout(cluster->redis_nodes[handler_idx]->ctx, cluster->timeout);
+	redis_node = cluster->redis_nodes[handler_idx]->ctx;
+    rc = redisSetTimeout(redis_node, cluster->timeout);
     if (REDIS_OK != rc) {
         _redis_cluster_log("Set timeout fail.[%d]", rc);
-        redisFree(cluster->redis_nodes[handler_idx]->ctx);
+		cluster->errstr = "Failed to set timeout";
+        redisFree(redis_node);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
         return NULL;
     }
 
-    rc = redisGetReply(cluster->redis_nodes[handler_idx]->ctx, (void **)&reply);
+    rc = redisGetReply(redis_node, (void **)&reply);
     if (REDIS_OK != rc || NULL == reply) {
-        redisFree(cluster->redis_nodes[handler_idx]->ctx);
+		cluster->errstr = "Connection get reply failed";
+        _redis_cluster_log("Get reply fail: %s.", redis_node->errstr);
+        redisFree(redis_node);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
-        _redis_cluster_log("Get reply fail.");
         return NULL;
     }
 
@@ -714,12 +732,14 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
             /* Refresh cluster nodes */
             rc = _redis_cluster_refresh(cluster);
             if (rc < 0) {
+				cluster->errstr = "Redirect; refresh failed";
                 _redis_cluster_log("Refresh cluster fail.");
                 return NULL;
             }
 
             handler_idx = cluster->slots_handler[slot]->id;
             if (handler_idx < 0) {
+				cluster->errstr = "Redirect; Find slot handler connection fail";
                 _redis_cluster_log("Find slot handler connection fail.");
                 return NULL;
             }
@@ -738,6 +758,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
                     redisFree(cluster->redis_nodes[handler_idx]->ctx);
                     cluster->redis_nodes[handler_idx]->ctx = NULL;
                 }
+				cluster->errstr = "Redirect; Reconnect timeout";
                 _redis_cluster_log("Reconnect to redis server timeout.");
                 return NULL;
             }

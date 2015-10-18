@@ -153,7 +153,7 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 		ABORT_FINALIZE(RS_RET_SUSPENDED);
     }
 	
-	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2);
+	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2500);
 	if (res == -1) {
 		redis_cluster_free(pWrkrData->conn);
 		pWrkrData->conn = NULL;
@@ -211,10 +211,10 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	} else {
 		reply = redis_cluster_get_reply ( pWrkrData->conn );
 		if(reply == NULL){
-			dbgprintf("omhiredis: getting reply failed");
+			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply failed, errstr: %s", pWrkrData->conn->errstr);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}else if(reply->type == REDIS_REPLY_ERROR){
-			dbgprintf("omhiredis: getting reply error: %s", reply->str);
+			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply error: %s", reply->str);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}
 	}
