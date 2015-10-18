@@ -210,7 +210,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		if(reply == NULL){
 			dbgprintf("omhiredis: getting reply failed");
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
-		}else if(r->type == REDIS_REPLY_ERROR){
+		}else if(reply->type == REDIS_REPLY_ERROR){
 			dbgprintf("omhiredis: getting reply error: %s", reply->str);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}
