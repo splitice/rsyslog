@@ -292,7 +292,9 @@ _append_slot_list *_slot_list_init()
         return NULL;
     }
 
-    handler_list->list_size = DEFAULT_LIST_SIZE;
+	handler_list->list_size = DEFAULT_LIST_SIZE;
+	memset(handler_list->list, 0, handler_list->list_size * sizeof(_append_slot_record));
+
     handler_list->count = 0;
     handler_list->pos = 0;
     return handler_list;
@@ -325,18 +327,25 @@ void _slot_list_reset(_append_slot_list *slot_list)
 
 int _slot_list_add(_append_slot_list *slot_list, int slot, const char *fmt, va_list ap)
 {
+	int new_element_count;
+
     if (slot_list->count >= slot_list->list_size) {
-        _append_slot_record *new_list = (_append_slot_record *)malloc(slot_list->list_size * 2 * sizeof(_append_slot_record));
+		new_element_count = slot_list->list_size * 2;
+		_append_slot_record *new_list = (_append_slot_record *)malloc(new_element_count * sizeof(_append_slot_record));
         if (!new_list) {
             return - 1;
         }
 
         if (slot_list->list) {
             memcpy(new_list, slot_list->list, slot_list->list_size * sizeof(_append_slot_record));
-            free(slot_list->list);
-        }
+			free(slot_list->list);
+			memset(handler_list->list + (slot_list->list_size * sizeof(_append_slot_record)), 0, (new_element_count - slot_list->list_size) * sizeof(_append_slot_record));
+		}
+		else{
+			memset(handler_list->list, 0, new_element_count * sizeof(_append_slot_record));
+		}
         slot_list->list = new_list;
-        slot_list->list_size *= 2;
+        slot_list->list_size = new_element_count;
     }
 
     slot_list->list[slot_list->count].slot = slot;
