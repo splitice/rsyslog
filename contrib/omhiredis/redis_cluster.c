@@ -339,10 +339,10 @@ int _slot_list_add(_append_slot_list *slot_list, int slot, const char *fmt, va_l
         if (slot_list->list) {
             memcpy(new_list, slot_list->list, slot_list->list_size * sizeof(_append_slot_record));
 			free(slot_list->list);
-			memset(newlist + (slot_list->list_size * sizeof(_append_slot_record)), 0, (new_element_count - slot_list->list_size) * sizeof(_append_slot_record));
+			memset(new_list + (slot_list->list_size * sizeof(_append_slot_record)), 0, (new_element_count - slot_list->list_size) * sizeof(_append_slot_record));
 		}
 		else{
-			memset(newlist, 0, new_element_count * sizeof(_append_slot_record));
+			memset(new_list, 0, new_element_count * sizeof(_append_slot_record));
 		}
         slot_list->list = new_list;
         slot_list->list_size = new_element_count;
