@@ -704,7 +704,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
 		cluster->errstr = "Failed to set timeout";
         redisFree(redis_node);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
-        goto error
+		goto error;
     }
 
     rc = redisGetReply(redis_node, (void **)&reply);
