@@ -215,7 +215,10 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}else if(reply->type == REDIS_REPLY_ERROR){
 			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply error: %s", reply->str);
+			freeReplyObject(reply);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
+		}else{
+			freeReplyObject(reply);
 		}
 	}
 

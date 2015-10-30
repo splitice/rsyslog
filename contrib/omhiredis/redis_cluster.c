@@ -704,7 +704,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
 		cluster->errstr = "Failed to set timeout";
         redisFree(redis_node);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
-        return NULL;
+        goto error
     }
 
     rc = redisGetReply(redis_node, (void **)&reply);
@@ -713,7 +713,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
         _redis_cluster_log("Get reply fail: %s.", redis_node->errstr);
         redisFree(redis_node);
         cluster->redis_nodes[handler_idx]->ctx = NULL;
-        return NULL;
+		goto error;
     }
 
     /* Cluster redirection */
@@ -737,6 +737,7 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
         *s = '\0';
         handler_idx = _redis_cluster_find_connection(cluster, p + 1, atoi(s + 1));
         freeReplyObject(reply);
+		reply = NULL;
         if (handler_idx < 0) {
             /* Refresh cluster nodes */
             rc = _redis_cluster_refresh(cluster);
@@ -769,11 +770,15 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
                 }
 				cluster->errstr = "Redirect; Reconnect timeout";
                 _redis_cluster_log("Reconnect to redis server timeout.");
-                return NULL;
+				goto error;
             }
         }
 
         redirect_ctx = cluster->redis_nodes[handler_idx]->ctx;
+		if (reply){
+			freeReplyObject(reply);
+			reply = NULL;
+		}
         reply = (redisReply *)(redisvCommand(redirect_ctx, record->fmt, record->ap));
         if (!reply) {
             return NULL;
@@ -784,4 +789,11 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
     record->valid_ap = 0;
 
     return reply;
+
+error:
+	if (reply){
+		freeReplyObject(reply);
+		reply = NULL;
+	}
+	return NULL;
 }
