@@ -175,7 +175,8 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	DEFiRet;
 	redisReply * reply;
 	char key_formatted[256];
-
+	char ip_port[sizeof("222.222.222.222:11111") + 1];
+	
 	/*  if we do not have a redis connection, call
 	 *  initHiredis and try to establish one */
 	if(pWrkrData->conn == NULL)
@@ -209,12 +210,12 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		reply = redis_cluster_get_reply ( pWrkrData->conn );
+		reply = redis_cluster_get_reply ( pWrkrData->conn, ip_port );
 		if(reply == NULL){
 			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply failed, errstr: %s", pWrkrData->conn->errstr);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}else if(reply->type == REDIS_REPLY_ERROR){
-			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply error: %s", reply->str);
+			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: reply from %s error: %s", ip_port, reply->str);
 			freeReplyObject(reply);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
 		}else{

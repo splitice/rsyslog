@@ -672,7 +672,7 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
     return 0;
 }
 
-redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
+redisReply *redis_cluster_get_reply(redis_cluster_st *cluster, char* ip_port = NULL)
 {
     _append_slot_record *record = _slot_list_get(cluster->slot_list);
     if (NULL == record) {
@@ -696,6 +696,10 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster)
 		cluster->errstr = "No slot handler found";
         return NULL;
     }
+	
+	if (ip_port != NULL){
+		sprintf(ip_port, "%s:%d", cluster->slots_handler[slot]->ip, cluster->slots_handler[slot]->port);
+	}
 
 	redis_node = cluster->redis_nodes[handler_idx]->ctx;
     rc = redisSetTimeout(redis_node, cluster->timeout);
