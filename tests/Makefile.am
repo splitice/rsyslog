@@ -12,6 +12,9 @@ TESTS = $(TESTRUNS)
 TESTS +=  \
 	stop-localvar.sh \
 	stop-msgvar.sh \
+	msgvar-concurrency.sh \
+	localvar-concurrency.sh \
+	exec_tpl-concurrency.sh \
 	fac_authpriv.sh \
 	fac_local0.sh \
 	fac_local7.sh \
@@ -24,6 +27,7 @@ TESTS +=  \
 	fac_invld2.sh \
 	fac_invld3.sh \
 	fac_invld4_rfc5424.sh \
+	now_family_utc.sh \
 	rawmsg-after-pri.sh \
 	rfc5424parser.sh \
 	tcp_forwarding_tpl.sh \
@@ -41,7 +45,6 @@ TESTS +=  \
 	rulesetmultiqueue-v6.sh \
 	manytcp.sh \
 	rsf_getenv.sh \
-	imtcp_conndrop_tls.sh \
 	imtcp_conndrop.sh \
 	imtcp_addtlframedelim.sh \
 	imtcp_no_octet_counted.sh \
@@ -123,6 +126,18 @@ TESTS +=  \
 	rscript_wrap3.sh \
 	rscript_re_extract.sh \
 	rscript_re_match.sh \
+	rscript_eq.sh \
+	rscript_eq_var.sh \
+	rscript_ge.sh \
+	rscript_ge_var.sh \
+	rscript_gt.sh \
+	rscript_gt_var.sh \
+	rscript_le.sh \
+	rscript_le_var.sh \
+	rscript_lt.sh \
+	rscript_lt_var.sh \
+	rscript_ne.sh \
+	rscript_ne_var.sh \
 	rs_optimizer_pri.sh \
 	cee_simple.sh \
 	cee_diskqueue.sh \
@@ -221,11 +236,10 @@ endif
 if ENABLE_MMNORMALIZE
 if ENABLE_IMPTCP
 TESTS +=  \
-	mmnormalize_variable.sh \
-	mmnormalize_tokenized.sh \
 	mmnormalize_regex_defaulted.sh \
-	mmnormalize_regex_disabled.sh
-
+	mmnormalize_regex_disabled.sh \
+	mmnormalize_variable.sh \
+	mmnormalize_tokenized.sh
 endif
 if LOGNORM_REGEX_SUPPORTED
 TESTS += \
@@ -242,8 +256,16 @@ TESTS +=  \
 	json_array_looping.sh \
 	json_nonarray_looping.sh
 endif
+if HAVE_VALGRIND
 TESTS +=  \
-	stop_when_array_has_element.sh
+	json_null_array-vg.sh \
+	json_null-vg.sh
+endif
+TESTS +=  \
+	stop_when_array_has_element.sh \
+	json_null_array.sh \
+	json_null.sh \
+	json_var_cmpr.sh
 endif
 
 if ENABLE_GNUTLS
@@ -446,16 +468,28 @@ EXTRA_DIST= \
 	testsuites/stop.conf \
 	rscript_le.sh \
 	testsuites/rscript_le.conf \
+	rscript_le_var.sh \
+	testsuites/rscript_le_var.conf \
 	rscript_ge.sh \
 	testsuites/rscript_ge.conf \
+	rscript_ge_var.sh \
+	testsuites/rscript_ge_var.conf \
 	rscript_lt.sh \
 	testsuites/rscript_lt.conf \
+	rscript_lt_var.sh \
+	testsuites/rscript_lt_var.conf \
 	rscript_gt.sh \
 	testsuites/rscript_gt.conf \
+	rscript_gt_var.sh \
+	testsuites/rscript_gt_var.conf \
 	rscript_ne.sh \
 	testsuites/rscript_ne.conf \
+	rscript_ne_var.sh \
+	testsuites/rscript_ne_var.conf \
 	rscript_eq.sh \
 	testsuites/rscript_eq.conf \
+	rscript_eq_var.sh \
+	testsuites/rscript_eq_var.conf \
 	rscript_set_modify.sh \
 	testsuites/rscript_set_modify.conf \
 	testsuites/rscript_unaffected_reset.conf \
@@ -463,6 +497,12 @@ EXTRA_DIST= \
 	testsuites/stop-localvar.conf \
 	stop-msgvar.sh \
 	testsuites/stop-msgvar.conf \
+	msgvar-concurrency.sh \
+	testsuites/msgvar-concurrency.conf \
+	localvar-concurrency.sh \
+	testsuites/localvar-concurrency.conf \
+	exec_tpl-concurrency.sh \
+	testsuites/exec_tpl-concurrency.conf \
 	global_vars.sh \
 	testsuites/global_vars.conf \
 	rfc5424parser.sh \
@@ -491,6 +531,8 @@ EXTRA_DIST= \
 	testsuites/fac_invld3.conf \
 	fac_invld4_rfc5424.sh \
 	testsuites/fac_invld4_rfc5424.conf \
+	now_family_utc.sh \
+	testsuites/now_family_utc.conf \
 	rawmsg-after-pri.sh \
 	testsuites/rawmsg-after-pri.conf \
 	rs_optimizer_pri.sh \
@@ -581,6 +623,7 @@ EXTRA_DIST= \
 	imtcp_conndrop.sh \
 	testsuites/imtcp_conndrop.conf \
 	imtcp_conndrop_tls.sh \
+	testsuites/imtcp_conndrop_tls.conf \
 	imtcp_conndrop_tls-vg.sh \
 	testsuites/imtcp_conndrop.conf \
 	imtcp_addtlframedelim.sh \
@@ -813,7 +856,7 @@ EXTRA_DIST= \
 	mysql-actq-mt-withpause-vg.sh \
 	testsuites/mysql-actq-mt.conf \
 	mmpstrucdata.sh \
-        mmpstrucdata-vg.sh \
+	mmpstrucdata-vg.sh \
 	testsuites/mmpstrucdata.conf \
 	mmpstrucdata-invalid-vg.sh \
 	testsuites/mmpstrucdata-invalid.conf \
@@ -847,6 +890,12 @@ EXTRA_DIST= \
 	json_array_looping.sh \
 	json_nonarray_looping.sh \
 	testsuites/json_array_looping.conf \
+	json_null.sh \
+	json_null-vg.sh \
+	testsuites/json_null.conf \
+	json_null_array.sh \
+	json_null_array-vg.sh \
+	testsuites/json_null_array.conf \
 	mmnormalize_regex.sh \
 	testsuites/mmnormalize_regex.conf \
 	testsuites/mmnormalize_regex.rulebase \
@@ -868,6 +917,8 @@ EXTRA_DIST= \
 	testsuites/lookup_table.conf \
 	testsuites/xlate.lkp_tbl \
 	testsuites/xlate_more.lkp_tbl \
+	json_var_cmpr.sh \
+	testsuites/json_var_cmpr.conf \
 	cfg.sh
 
 # TODO: re-enable

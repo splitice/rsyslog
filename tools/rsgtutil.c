@@ -171,7 +171,7 @@ convertFile(char *name)
 			if ( fwrite(LOGSIGHDR, sizeof(LOGSIGHDR)-1, 1, newsigfp) != 1) goto err;
 		}
 
-		if ((r = rsgt_ConvertSigFile(name, oldsigfp, newsigfp, verbose)) != 0)
+		if ((r = rsgt_ConvertSigFile(oldsigfp, newsigfp, verbose)) != 0)
 			goto err;
 		else {
 			/* Close FILES */
@@ -348,7 +348,7 @@ convertFileKSI(char *name)
 			if ( fwrite(LOGSIGHDR, sizeof(LOGSIGHDR)-1, 1, newsigfp) != 1) goto err;
 		}
 
-		if ((r = rsksi_ConvertSigFile(name, oldsigfp, newsigfp, verbose)) != 0)
+		if ((r = rsksi_ConvertSigFile(oldsigfp, newsigfp, verbose)) != 0)
 			goto err;
 		else {
 			/* Close FILES */
@@ -445,7 +445,7 @@ err:	fprintf(stderr, "error %d (%s) processing file %s\n", r, RSGTE2String(r), n
 
 static inline int
 doVerifyRec(FILE *logfp, FILE *sigfp, FILE *nsigfp,
-	    block_sig_t *bs, gtfile gf, gterrctx_t *ectx, uint8_t bInBlock)
+	    gtfile gf, gterrctx_t *ectx, uint8_t bInBlock)
 {
 	int r;
 	size_t lenRec;
@@ -473,7 +473,7 @@ doVerifyRec(FILE *logfp, FILE *sigfp, FILE *nsigfp,
 	if(bInBlock == 0)
 		rsgt_errctxFrstRecInBlk(ectx, line);
 
-	r = rsgt_vrfy_nextRec(bs, gf, sigfp, nsigfp, (unsigned char*)line, lenRec, ectx);
+	r = rsgt_vrfy_nextRec(gf, sigfp, nsigfp, (unsigned char*)line, lenRec, ectx);
 done:
 	return r;
 }
@@ -552,7 +552,7 @@ verifyGT(char *name, char *errbuf, char *sigfname, char *oldsigfname, char *nsig
 			++ectx.blkNum;
 		}
 		++ectx.recNum, ++ectx.recNumInFile;
-		if((r = doVerifyRec(logfp, sigfp, nsigfp, bs, gf, &ectx, bInBlock)) != 0)
+		if((r = doVerifyRec(logfp, sigfp, nsigfp, gf, &ectx, bInBlock)) != 0)
 			goto done;
 		if(ectx.recNum == bs->recCount) {
 			if((r = verifyBLOCK_SIG(bs, gf, sigfp, nsigfp, 
@@ -965,6 +965,12 @@ verifyGT:
 
 verifyKSI:
 #ifdef ENABLEKSI
+	/* puburl is mandatory for KSI now! */
+	if (strlen(rsksi_read_puburl) <= 0) {
+		iSuccess = 0; 
+		sprintf(errbuf, "ERROR, missing --publications-server parameter is mandatory when verifying KSI signatures.\n"); 
+		goto done; /* abort */
+	} 
 	iSuccess = verifyKSI(name, errbuf, sigfname, oldsigfname, nsigfname, logfp, sigfp, nsigfp); 
 #else
 	iSuccess = 0; 
@@ -1061,6 +1067,9 @@ static struct option long_options[] =
 	{"extend", no_argument, NULL, 'e'},
 	{"show-verified", no_argument, NULL, 's'},
 	{"publications-server", required_argument, NULL, 'P'},
+	{"extend-server", required_argument, NULL, 'E'},
+	{"userid", required_argument, NULL, 'u'},
+	{"userkey", required_argument, NULL, 'k'},
 	{"api", required_argument, NULL, 'a'},
 	{NULL, 0, NULL, 0} 
 }; 
@@ -1085,6 +1094,9 @@ rsgtutil_usage(void)
 			"\t\tKSI = Guardtime KSI Library\n"
 			"\t-s, --show-verified \t\t Also show correctly verified blocks.\n"
 			"\t-P <URL>, --publications-server <URL> \t Sets the publications server.\n"
+			"\t-E <URL>, --extend-server <URL> \t Sets the extension server.\n"
+			"\t-u <USERID>, --userid <USERID> \t Sets the userid used (Needed for the extension server).\n"
+			"\t-k <USERKEY>, --userkey <USERKEY> \t Sets the userkey used (Needed for the extension server).\n"
 			"\t-v, --verbose \t\t\t Verbose output.\n"
 			"\t-d, --debug \t\t\t Debug (developer) output.\n"
 			);
@@ -1097,7 +1109,7 @@ main(int argc, char *argv[])
 	int opt;
 
 	while(1) {
-		opt = getopt_long(argc, argv, "aBcdDeHPstTvV", long_options, NULL);
+		opt = getopt_long(argc, argv, "aBcdDeEHkPstTuvV", long_options, NULL);
 		if(opt == -1)
 			break;
 		switch(opt) {
@@ -1148,6 +1160,30 @@ main(int argc, char *argv[])
 #endif
 #ifdef ENABLEKSI
 			rsksi_read_puburl = optarg;
+#endif
+			break;
+		case 'E':
+#ifdef ENABLEGT
+			rsgt_extend_puburl = optarg;
+#endif
+#ifdef ENABLEKSI
+			rsksi_extend_puburl = optarg;
+#endif
+			break;
+		case 'u':
+#ifdef ENABLEGT
+			rsgt_userid = optarg;
+#endif
+#ifdef ENABLEKSI
+			rsksi_userid = optarg;
+#endif
+			break;
+		case 'k':
+#ifdef ENABLEGT
+			rsgt_userkey = optarg;
+#endif
+#ifdef ENABLEKSI
+			rsksi_userkey = optarg;
 #endif
 			break;
 		case 'T':
