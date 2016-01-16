@@ -78,6 +78,6 @@ redisReply *redis_cluster_arg_execute(redis_cluster_st *cluster, int slot, const
 int redis_cluster_append(redis_cluster_st *cluster, const char *key, const char *fmt, ...);
 int redis_cluster_v_append(redis_cluster_st *cluster, const char *key, const char *fmt, va_list ap);
 int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fmt, va_list ap);
-redisReply *redis_cluster_get_reply(redis_cluster_st *cluster, char* ip_port = NULL);
+redisReply *redis_cluster_get_reply(redis_cluster_st *cluster);
 
 #endif // POCO_REDIS_CLUSTER_H

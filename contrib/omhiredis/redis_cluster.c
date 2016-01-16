@@ -584,7 +584,7 @@ redisReply *redis_cluster_arg_execute(redis_cluster_st *cluster, int slot, const
         return NULL;
     }
 
-    return redis_cluster_get_reply(cluster);
+    return redis_cluster_get_reply(cluster, NULL);
 }
 
 int redis_cluster_append(redis_cluster_st *cluster, const char *key, const char *fmt, ...)
@@ -672,7 +672,7 @@ int redis_cluster_arg_append(redis_cluster_st *cluster, int slot, const char *fm
     return 0;
 }
 
-redisReply *redis_cluster_get_reply(redis_cluster_st *cluster, char* ip_port = NULL)
+redisReply *redis_cluster_get_reply(redis_cluster_st *cluster, char* ip_port)
 {
     _append_slot_record *record = _slot_list_get(cluster->slot_list);
     if (NULL == record) {
