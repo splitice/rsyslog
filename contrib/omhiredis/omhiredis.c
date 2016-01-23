@@ -183,13 +183,12 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	 *  happened, in which case abort. otherwise
 	 *  increase our current pipeline count
 	 *  by 1 and continue. */
-	redisReply* rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
 			reply = redisClusterCommand(pWrkrData->conn, key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			reply = redisClusterCommand(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
+			reply = redisClusterCommand(pWrkrData->conn, "LPUSH %s %b", key_formatted, (char*)message, strlen((char*)message));
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
 			reply = redisClusterCommand(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
@@ -199,8 +198,8 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 			ABORT_FINALIZE(RS_RET_ERR);
     }
 
-	if (rc == NULL) {
-		errmsg.LogError(0, NO_ERRCODE, "omhiredis: command failed - errstr %s", pWrkrData->conn->errstr);
+	if (reply == NULL) {
+		errmsg.LogError(0, NO_ERRCODE, "omhiredis: command failed - errstr: %s", pWrkrData->conn->errstr);
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
