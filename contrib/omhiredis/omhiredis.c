@@ -183,16 +183,16 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	 *  happened, in which case abort. otherwise
 	 *  increase our current pipeline count
 	 *  by 1 and continue. */
-	void* rc;
+	redisReply* rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
-			rc = redisClusterCommand(pWrkrData->conn, key_formatted, (char*)message);
+			reply = redisClusterCommand(pWrkrData->conn, key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			rc = redisClusterCommand(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
+			reply = redisClusterCommand(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
-			rc = redisClusterCommand(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
+			reply = redisClusterCommand(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
 			break;
 		default:
 			dbgprintf("omhiredis: mode %d is invalid something is really wrong\n", pWrkrData->pData->mode);
@@ -204,7 +204,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		redisClusterGetReply ( pWrkrData->conn, &reply );
+		//redisClusterGetReply ( pWrkrData->conn, &reply );
 		if(reply == NULL){
 			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply failed, errstr: %s", pWrkrData->conn->errstr);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
