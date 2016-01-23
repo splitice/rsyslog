@@ -30,7 +30,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <time.h>
-#include <hiredis-vip/hiredis.h>
+#include <hiredis-vip/hircluster.h>
 
 #include "rsyslog.h"
 #include "conf.h"
@@ -183,7 +183,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	 *  happened, in which case abort. otherwise
 	 *  increase our current pipeline count
 	 *  by 1 and continue. */
-	int rc;
+	void* rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
 			rc = redisClusterCommand(pWrkrData->conn, key_formatted, (char*)message);
@@ -199,7 +199,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 			ABORT_FINALIZE(RS_RET_ERR);
     }
 
-	if (rc == -1) {
+	if (rc == NULL) {
 		errmsg.LogError(0, NO_ERRCODE, "omhiredis: command failed - errstr %s", pWrkrData->conn->errstr);
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
