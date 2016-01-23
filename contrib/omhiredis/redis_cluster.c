@@ -779,9 +779,9 @@ redisReply *redis_cluster_get_reply(redis_cluster_st *cluster, char* ip_port)
         }
 
         redirect_ctx = cluster->redis_nodes[handler_idx]->ctx;
-		if (reply){
-			freeReplyObject(reply);
-			reply = NULL;
+		assert(record->valid_ap);
+		if(!record->valid_ap) {
+			return NULL;
 		}
         reply = (redisReply *)(redisvCommand(redirect_ctx, record->fmt, record->ap));
         if (!reply) {
