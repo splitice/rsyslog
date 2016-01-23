@@ -39,7 +39,6 @@
 #include "template.h"
 #include "module-template.h"
 #include "errmsg.h"
-#include "redis_cluster.h"
 #include "cfsysline.h"
 
 MODULE_TYPE_OUTPUT
@@ -70,7 +69,7 @@ typedef struct _instanceData {
 
 typedef struct wrkrInstanceData {
 	instanceData *pData; /* instanc data */
-	redis_cluster_st *conn; /* redis connection */
+	redisClusterContext *conn; /* redis connection */
 	redisReply **replies; /* array to hold replies from redis */
 	int count; /* count of command sent for current batch */
 } wrkrInstanceData_t;
@@ -109,7 +108,7 @@ ENDisCompatibleWithFeature
 static void closeHiredis(wrkrInstanceData_t *pWrkrData)
 {
 	if(pWrkrData->conn != NULL) {
-		redis_cluster_free(pWrkrData->conn);
+		redisClusterFree(pWrkrData->conn);
 		pWrkrData->conn = NULL;
 	}
 }
@@ -139,30 +138,25 @@ static rsRetVal initHiredis(wrkrInstanceData_t *pWrkrData, int bSilent)
 	char *server;
 	DEFiRet;
 	int res;
+	char host_port[255];
+	
 
 	server = (pWrkrData->pData->server == NULL) ? "127.0.0.1" : 
 			(char*) pWrkrData->pData->server;
+			
+	
+	sprintf(host_port, "%s:%d", server, pWrkrData->pData->port);
+	
 	DBGPRINTF("omhiredis: trying connect to '%s' at port %d\n", server, 
 			pWrkrData->pData->port);
 			
-	pWrkrData->conn = redis_cluster_init();
+	pWrkrData->conn = redisClusterConnect(host_port,HIRCLUSTER_FLAG_NULL);
     if (!pWrkrData->conn) {
-		if(!bSilent)
-			errmsg.LogError(0, RS_RET_SUSPENDED,
-				"Init cluster fail.");
-		ABORT_FINALIZE(RS_RET_SUSPENDED);
-    }
-	
-	res = redis_cluster_connect(pWrkrData->conn, &server, &pWrkrData->pData->port, 1, 2500);
-	if (res == -1) {
-		redis_cluster_free(pWrkrData->conn);
-		pWrkrData->conn = NULL;
-		
 		if(!bSilent)
 			errmsg.LogError(0, RS_RET_SUSPENDED,
 				"can not connect to redis");
 		ABORT_FINALIZE(RS_RET_SUSPENDED);
-	}
+    }
 	
 	srand(time(NULL));
 	pWrkrData->pData->keyn = rand();
@@ -192,13 +186,13 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 	int rc;
     switch(pWrkrData->pData->mode) {
 		case OMHIREDIS_MODE_TEMPLATE:
-			rc = redis_cluster_append(pWrkrData->conn, key_formatted, (char*)message);
+			rc = redisClusterCommand(pWrkrData->conn, key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_QUEUE:
-			rc = redis_cluster_append(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
+			rc = redisClusterCommand(pWrkrData->conn, key_formatted, "LPUSH %s %s", key_formatted, (char*)message);
 			break;
 		case OMHIREDIS_MODE_PUBLISH:
-			rc = redis_cluster_append(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
+			rc = redisClusterCommand(pWrkrData->conn, key_formatted, "PUBLISH %s %s", key_formatted, (char*)message);
 			break;
 		default:
 			dbgprintf("omhiredis: mode %d is invalid something is really wrong\n", pWrkrData->pData->mode);
@@ -210,7 +204,7 @@ rsRetVal writeHiredis(uchar *message, wrkrInstanceData_t *pWrkrData)
 		dbgprintf("omhiredis: %s\n", pWrkrData->conn->errstr);
 		ABORT_FINALIZE(RS_RET_ERR);
 	} else {
-		reply = redis_cluster_get_reply ( pWrkrData->conn, ip_port );
+		redisClusterGetReply ( pWrkrData->conn, &reply );
 		if(reply == NULL){
 			errmsg.LogError(0, RS_RET_SUSPENDED, "omhiredis: getting reply failed, errstr: %s", pWrkrData->conn->errstr);
 			ABORT_FINALIZE(RS_RET_SUSPENDED);
