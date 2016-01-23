@@ -30,7 +30,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <time.h>
-#include <hiredis/hiredis.h>
+#include <hiredis-vip/hiredis.h>
 
 #include "rsyslog.h"
 #include "conf.h"
