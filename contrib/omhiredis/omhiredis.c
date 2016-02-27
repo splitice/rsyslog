@@ -64,7 +64,7 @@ typedef struct _instanceData {
 	int mode; /* mode constant */
 	char *key; /* key for QUEUE and PUBLISH modes */
 	int maxkeyn;
-	int keyn;
+	unsigned int keyn;
 } instanceData;
 
 typedef struct wrkrInstanceData {
